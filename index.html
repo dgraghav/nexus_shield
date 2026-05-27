@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Shield Live - Ultimate Tactical FX Edition</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght=500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: #030306;
+            color: #e2e8f0;
+            overflow: hidden;
+        }
+        .mono { font-family: 'Share Tech Mono', monospace; }
+        .glass-panel {
+            background: rgba(8, 8, 20, 0.9);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.08);
+        }
+        #terminalLog::-webkit-scrollbar { width: 4px; }
+        #terminalLog::-webkit-scrollbar-thumb { background: #5b21b6; border-radius: 2px; }
+        
+        .threat-alert-flash {
+            animation: emergencyFlash 0.3s infinite alternate;
+        }
+        @keyframes emergencyFlash {
+            0% { border-color: rgba(139, 92, 246, 0.3); }
+            100% { border-color: rgba(239, 68, 68, 0.9); box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col p-3 select-none">
+
+    <!-- TOP CONTROL EXECUTIVE HEADER -->
+    <header id="mainHeader" class="w-full flex justify-between items-center bg-[#06060f] p-3 border-b border-violet-500/30 rounded-t-lg z-20 transition-all duration-200">
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2">
+                <div id="statusDot" class="w-3 h-3 rounded-full bg-purple-500 animate-pulse shadow-[0_0_10px_#a855f7]"></div>
+                <h1 class="text-xl md:text-2xl font-bold tracking-wider text-white uppercase">NEXUS SHIELD <span class="text-xs font-normal text-violet-400 normal-case hidden sm:block -mt-1 font-semibold">3D Tactical Operations Dashboard v9.0</span></h1>
+            </div>
+            <div id="emergencyBadge" class="hidden bg-red-950/80 text-[10px] font-bold text-red-400 px-2.5 py-1 rounded uppercase border border-red-500/50 tracking-widest animate-bounce">⚠️ BREACH ACTIVE</div>
+        </div>
+
+        <!-- PLAYBACK AUTOMATION CONTROLS -->
+        <div class="flex items-center gap-2 md:gap-4 bg-purple-950/20 border border-purple-500/30 px-3 py-1.5 rounded-lg scale-90 md:scale-100">
+            <div class="hidden md:flex items-center gap-2 text-xs font-bold uppercase text-purple-300">
+                <span>Time Warp:</span>
+                <input type="range" id="speedSlider" min="0.1" max="4.0" step="0.1" value="1.0" oninput="updateSpeed(this.value)" class="w-20 lg:w-28 accent-purple-500 cursor-pointer">
+                <span id="speedDisplay" class="mono bg-purple-950 px-1.5 py-0.5 rounded text-purple-400">1.0x</span>
+            </div>
+            <div class="hidden md:block h-4 w-px bg-purple-500/30"></div>
+            <button onclick="toggleFreezeFrame()" id="freezeBtn" class="bg-purple-900/40 border border-purple-500/40 text-xs font-bold px-3 py-1 rounded uppercase text-purple-300 transition hover:bg-purple-800/50">⏸️ Freeze</button>
+            <div class="h-4 w-px bg-purple-500/30"></div>
+            <button onclick="toggleAudio()" id="audioBtn" class="border border-purple-500/30 text-xs font-bold px-2.5 py-1 rounded uppercase text-purple-400">🔇 Audio</button>
+        </div>
+    </header>
+
+    <!-- CONTENT FIELDS CONTAINER -->
+    <main class="flex-1 w-full flex flex-col md:flex-row gap-3 mt-3 overflow-hidden relative min-h-0">
+        
+        <!-- MAIN HUB CELL (Globe container) -->
+        <div id="mainCanvasContainer" class="flex-1 flex flex-col bg-[#010103] rounded-lg relative border border-purple-950/40 overflow-hidden transition-all duration-200 order-1 md:order-none">
+            
+            <!-- LAYER CONTROLLERS (Responsive z-index and padding adjustments) -->
+            <div class="absolute top-3 left-3 md:top-4 md:left-4 z-30 glass-panel p-3 rounded w-48 md:w-60 space-y-3 scale-90 md:scale-100 origin-top-left">
+                <div>
+                    <h3 class="text-xs uppercase text-purple-400 tracking-widest font-bold mb-1.5 border-b border-purple-500/20 pb-1">Matrix Map Layer</h3>
+                    <div class="flex flex-col gap-1.5">
+                        <button onclick="setTheme('satellite')" id="btn-satellite" class="text-left text-[11px] md:text-xs bg-purple-950/60 border border-purple-500/50 text-purple-300 px-2 py-1.5 rounded font-bold transition">🔮 Amethyst Earth</button>
+                        <button onclick="setTheme('neon')" id="btn-neon" class="text-left text-[11px] md:text-xs bg-slate-900/40 border border-slate-800 text-slate-400 px-2 py-1.5 rounded font-bold transition hover:border-purple-900/50">🌐 Violet Grid</button>
+                        <button onclick="setTheme('heatmap')" id="btn-heatmap" class="text-left text-[11px] md:text-xs bg-slate-900/40 border border-slate-800 text-slate-400 px-2 py-1.5 rounded font-bold transition hover:border-purple-900/50">🔥 Thermal Matrix</button>
+                    </div>
+                </div>
+                <div class="hidden sm:block text-[10px] text-slate-500 font-semibold uppercase tracking-wider leading-relaxed">
+                    🖱️ Drag to Spin Globe <br> 📜 Scroll to Scale Zoom
+                </div>
+            </div>
+
+            <!-- ENGINE RENDER INTERFACE -->
+            <div class="flex-1 relative w-full h-full cursor-grab active:cursor-grabbing min-h-[250px]">
+                <canvas id="masterAutomationCanvas" class="w-full h-full absolute top-0 left-0"></canvas>
+            </div>
+
+            <!-- TERMINAL LOG DISPLAY -->
+            <div class="h-32 md:h-40 w-full border-t border-purple-950/50 flex flex-col bg-[#010103] z-10 p-3">
+                <div class="flex justify-between text-[10px] text-purple-500/80 uppercase mb-1 tracking-widest font-bold">
+                    <span>CONSOLE METADATA TELEMETRY STREAMS</span>
+                    <span id="terminalStatus" class="text-emerald-400 animate-pulse">● FEED SECURE</span>
+                </div>
+                <div id="terminalLog" class="flex-1 overflow-y-auto font-mono text-[11px] text-emerald-400/90 space-y-0.5 custom-scrollbar bg-black/40 p-2 border border-purple-950/50 rounded">
+                    <div>[SYSTEM] Global Border Outline Trace Pipeline Matrix Core Online... Ready.</div>
+                    <div>[SYSTEM] Glitch Alert Interceptors armed & wired to telemetry data triggers.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT DATA PANEL -->
+        <div class="w-full md:w-80 flex flex-col gap-3 h-auto md:h-full z-10 order-2 md:order-none">
+            <div id="sidebarPanel" class="glass-panel p-4 rounded-lg flex-1 flex flex-col justify-between gap-4 transition-all duration-200">
+                <div class="space-y-5">
+                    <div>
+                        <h2 class="text-xs font-bold uppercase tracking-widest text-purple-400 mb-3 border-b border-purple-950 pb-1">Shield Metrics</h2>
+                        <div class="space-y-4 text-xs">
+                            <div>
+                                <div class="flex justify-between text-pink-400 mb-1"><span>DDoS Volumetric Blocks</span><span class="mono">74 %</span></div>
+                                <div class="w-full h-2 bg-slate-950 rounded overflow-hidden"><div class="h-full bg-pink-500 w-[74%] shadow-[0_0_8px_#ec4899]"></div></div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-red-400 mb-1"><span>Malware Neutralized</span><span class="mono">88 %</span></div>
+                                <div class="w-full h-2 bg-slate-950 rounded overflow-hidden"><div class="h-full bg-red-500 w-[88%] shadow-[0_0_8px_#ef4444]"></div></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- DEVELOPER CREDENTIAL WIDGET -->
+                    <div class="p-3 bg-purple-950/20 border border-purple-500/30 rounded-lg text-center space-y-1.5">
+                        <div class="text-[9px] uppercase tracking-widest text-purple-400 font-bold font-mono">SYSTEMS ARCHITECT SIGNATURE</div>
+                        <div class="text-md font-bold text-emerald-400 font-sans tracking-wider uppercase">
+                            VINESH BODHKAR
+                        </div>
+                        <a href="https://www.linkedin.com/in/vinesh-bodhkar/" target="_blank" class="inline-flex items-center gap-1.5 text-[11px] text-purple-300 font-semibold uppercase hover:text-pink-400 transition cursor-pointer select-text">
+                            <span>🔗 LinkedIn Profile</span>
+                        </a>
+                        <div class="text-[9px] text-slate-500 font-mono tracking-wide">LEAD SECURITY ENGINEER | SEC-OPS</div>
+                    </div>
+                </div>
+
+                <!-- LIVE DEFCON STAGE INDICATOR WIDGET -->
+                <div id="defconBox" class="p-3 bg-blue-950/20 border border-blue-500/30 rounded-lg text-center space-y-2 transition-all duration-300">
+                    <div class="text-[9px] uppercase tracking-widest text-blue-400 font-bold font-mono flex justify-between items-center">
+                        <span>[TACTICAL DEFENSE CONDITION]</span>
+                        <span id="defconStatus" class="text-blue-400 animate-pulse">LEVEL 5</span>
+                    </div>
+                    <div class="py-1">
+                        <div id="defconDisplay" class="text-2xl font-bold tracking-widest font-mono text-blue-400 transition-colors duration-300">
+                            DEFCON 5
+                        </div>
+                        <div id="defconLabel" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5 font-mono">
+                            CONDITION: GREEN // SAFE
+                        </div>
+                    </div>
+                    <!-- DEFCON Progress Bars Matrix -->
+                    <div class="grid grid-cols-5 gap-1 pt-1 border-t border-slate-900">
+                        <div id="bar-5" class="h-1.5 bg-blue-500 transition-all duration-300"></div>
+                        <div id="bar-4" class="h-1.5 bg-slate-800 transition-all duration-300"></div>
+                        <div id="bar-3" class="h-1.5 bg-slate-800 transition-all duration-300"></div>
+                        <div id="bar-2" class="h-1.5 bg-slate-800 transition-all duration-300"></div>
+                        <div id="bar-1" class="h-1.5 bg-slate-800 transition-all duration-300"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const canvas = document.getElementById('masterAutomationCanvas');
+        const ctx = canvas.getContext('2d');
+        const term = document.getElementById('terminalLog');
+
+        // FIXED CRITICAL RESIZE FOR GOOGLE SITES SYSTEM (COMPATIBLE WITH DESKTOP & MOBILE iFRAMES)
+        function resize() {
+            let width = canvas.parentElement.clientWidth;
+            let height = canvas.parentElement.clientHeight;
+            
+            // Fallback to client bounding box if width reads 0 inside dynamic frames
+            if (!width || width === 0) {
+                const rect = canvas.parentElement.getBoundingClientRect();
+                width = rect.width;
+                height = rect.height;
+            }
+            
+            // Absolute window bounds safety net fallback
+            if (!width || width === 0) {
+                width = window.innerWidth * 0.65;
+                height = window.innerHeight * 0.60;
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+        }
+        window.addEventListener('resize', resize);
+        
+        // Dynamic re-triggers to wait for Google Site frame styles computation load
+        resize();
+        window.addEventListener('load', resize);
+        setTimeout(resize, 150);
+        setTimeout(resize, 600);
+
+        // 1. EXTENSIVE COUNTRIES GEOGRAPHIC BOUNDARIES DEFINITIONS
+        const nodes = [
+            { id: 0, name: "United States", lat: 38, lng: -97, attacksReceived: 0, borderTimer: 0 },
+            { id: 1, name: "India", lat: 21, lng: 78, attacksReceived: 0, borderTimer: 0 },
+            { id: 2, name: "China", lat: 35, lng: 104, attacksReceived: 0, borderTimer: 0 },
+            { id: 3, name: "Germany", lat: 51, lng: 10, attacksReceived: 0, borderTimer: 0 },
+            { id: 4, name: "Brazil", lat: -14, lng: -52, attacksReceived: 0, borderTimer: 0 },
+            { id: 5, name: "Australia", lat: -25, lng: 134, attacksReceived: 0, borderTimer: 0 },
+            { id: 6, name: "Russia", lat: 61, lng: 105, attacksReceived: 0, borderTimer: 0 },
+            { id: 7, name: "South Africa", lat: -30, lng: 23, attacksReceived: 0, borderTimer: 0 },
+            { id: 8, name: "Japan", lat: 36, lng: 138, attacksReceived: 0, borderTimer: 0 }
+        ];
+
+        // HIGH INTENSITY RE-DRAWABLE COUNTRY LINE MAP VECTOR BOUNDARIES
+        const countryBorders = {
+            0: [{lat:49, lng:-124}, {lat:49, lng:-95}, {lat:45, lng:-75}, {lat:25, lng:-80}, {lat:25, lng:-97}, {lat:32, lng:-117}, {lat:49, lng:-124}], // USA
+            1: [{lat:33, lng:76}, {lat:31, lng:78}, {lat:27, lng:88}, {lat:22, lng:88}, {lat:8, lng:77}, {lat:15, lng:73}, {lat:23, lng:68}, {lat:33, lng:76}],  // India
+            2: [{lat:42, lng:118}, {lat:40, lng:123}, {lat:22, lng:120}, {lat:21, lng:108}, {lat:28, lng:89}, {lat:36, lng:79}, {lat:42, lng:118}],   // China
+            3: [{lat:54, lng:9}, {lat:52, lng:14}, {lat:48, lng:13}, {lat:47, lng:7}, {lat:51, lng:6}, {lat:54, lng:9}],                            // Germany
+            4: [{lat:4, lng:-51}, {lat:-6, lng:-35}, {lat:-23, lng:-43}, {lat:-30, lng:-57}, {lat:-22, lng:-57}, {lat:4, lng:-51}],                  // Brazil
+            5: [{lat:-12, lng:130}, {lat:-15, lng:142}, {lat:-38, lng:146}, {lat:-35, lng:117}, {lat:-22, lng:114}, {lat:-12, lng:130}],            // Australia
+            6: [{lat:69, lng:31}, {lat:72, lng:60}, {lat:73, lng:110}, {lat:65, lng:170}, {lat:43, lng:131}, {lat:52, lng:85}, {lat:69, lng:31}],     // Russia
+            7: [{lat:-22, lng:29}, {lat:-28, lng:32}, {lat:-34, lng:20}, {lat:-29, lng:17}, {lat:-22, lng:20}, {lat:-22, lng:29}],                  // South Africa
+            8: [{lat:43, lng:142}, {lat:35, lng:140}, {lat:32, lng:130}, {lat:35, lng:133}, {lat:43, lng:142}]                                     // Japan
+        };
+
+        const mapBlueprints = [
+            {lat:[15, 68], lng:[-130, -60]}, {lat:[-55, 12], lng:[-78, -35]},
+            {lat:[-34, 34], lng:[12, 51]}, {lat:[10, 75], lng:[15, 145]}, {lat:[-39, -11], lng:[112, 153]}
+        ];
+        const earthPoints = [];
+        mapBlueprints.forEach(b => {
+            for (let lat = b.lat[0]; lat <= b.lat[1]; lat += 4.5) {
+                for (let lng = b.lng[0]; lng <= b.lng[1]; lng += 4.5) {
+                    if (lat < 24 && lng > 36 && lng < 58) continue;
+                    earthPoints.push({ lat, lng });
+                }
+            }
+        });
+
+        const matrixColumnsCount = Math.floor(window.innerWidth / 14);
+        const matrixDrops = Array.from({length: matrixColumnsCount}, () => Math.random() * -100);
+
+        // CONFIG STATE MACHINE INTERFACES
+        let currentTheme = 'satellite'; 
+        let currentScale = 1.0; 
+        let globalLatRotation = 0.25;
+        let globalLngRotation = 2.2;
+        
+        let activeLasers = [];
+        let activeExplosions = [];
+        let audioEnabled = false;
+        let audioCtx = null;
+
+        let timeWarpMultiplier = 1.0; 
+        let isSystemFrozen = false; 
+
+        // GLITCH STATUS CONTROLLER TRIGGERS
+        let isGlitchingActive = false;
+        let glitchTimerCounter = 0;
+
+        function updateSpeed(val) {
+            timeWarpMultiplier = parseFloat(val);
+            const disp = document.getElementById('speedDisplay');
+            if(disp) disp.innerHTML = timeWarpMultiplier.toFixed(1) + 'x';
+        }
+
+        function toggleFreezeFrame() {
+            isSystemFrozen = !isSystemFrozen;
+            let btn = document.getElementById('freezeBtn');
+            if(isSystemFrozen) {
+                btn.innerHTML = "▶️ Resume";
+                btn.className = "bg-emerald-900/40 border border-emerald-500/40 text-xs font-bold px-3 py-1 rounded uppercase text-emerald-300 transition hover:bg-emerald-800/50";
+            } else {
+                btn.innerHTML = "⏸️ Freeze";
+                btn.className = "bg-purple-900/40 border border-purple-500/40 text-xs font-bold px-3 py-1 rounded uppercase text-purple-300 transition hover:bg-purple-800/50";
+            }
+        }
+
+        // DEFCON ENGINE CONTROLLER
+        let currentDefconLevel = 5;
+        let defconResetTimeout = null;
+
+        function setDefconLevel(level) {
+            if(isSystemFrozen) return;
+            currentDefconLevel = level;
+
+            const box = document.getElementById('defconBox');
+            const status = document.getElementById('defconStatus');
+            const display = document.getElementById('defconDisplay');
+            const label = document.getElementById('defconLabel');
+
+            // Reset bars
+            for(let i=1; i<=5; i++) {
+                const bEl = document.getElementById(`bar-${i}`);
+                if(bEl) bEl.className = "h-1.5 bg-slate-800 transition-all duration-300";
+            }
+
+            if(level === 5) {
+                box.className = "p-3 bg-blue-950/20 border border-blue-500/30 rounded-lg text-center space-y-2 transition-all duration-300";
+                status.className = "text-blue-400 animate-pulse"; status.innerText = "LEVEL 5";
+                display.className = "text-2xl font-bold tracking-widest font-mono text-blue-400"; display.innerText = "DEFCON 5";
+                label.className = "text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5 font-mono"; label.innerText = "CONDITION: GREEN // SAFE";
+                document.getElementById('bar-5').className = "h-1.5 bg-blue-500 shadow-[0_0_8px_#3b82f6]";
+            } 
+            else if(level === 4) {
+                box.className = "p-3 bg-emerald-950/20 border border-emerald-500/30 rounded-lg text-center space-y-2 transition-all duration-300";
+                status.className = "text-emerald-400 animate-pulse"; status.innerText = "LEVEL 4";
+                display.className = "text-2xl font-bold tracking-widest font-mono text-emerald-400"; display.innerText = "DEFCON 4";
+                label.className = "text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5 font-mono"; label.innerText = "STANDBY // PATROL ACTIVE";
+                document.getElementById('bar-5').className = "h-1.5 bg-emerald-500";
+                document.getElementById('bar-4').className = "h-1.5 bg-emerald-500 shadow-[0_0_8px_#10b981]";
+            }
+            else if(level === 3) {
+                box.className = "p-3 bg-amber-950/20 border border-amber-500/30 rounded-lg text-center space-y-2 transition-all duration-300";
+                status.className = "text-amber-400 animate-pulse"; status.innerText = "LEVEL 3";
+                display.className = "text-2xl font-bold tracking-widest font-mono text-amber-400"; display.innerText = "DEFCON 3";
+                label.className = "text-[10px] font-bold text-amber-400 uppercase tracking-wider mt-0.5 font-mono"; label.innerText = "WARNING // ELEVATED RISK";
+                document.getElementById('bar-5').className = "h-1.5 bg-amber-500";
+                document.getElementById('bar-4').className = "h-1.5 bg-amber-500";
+                document.getElementById('bar-3').className = "h-1.5 bg-amber-500 shadow-[0_0_8px_#f59e0b]";
+            }
+            else if(level === 2) {
+                box.className = "p-3 bg-orange-950/30 border border-orange-500/40 rounded-lg text-center space-y-2 transition-all duration-300 animate-pulse";
+                status.className = "text-orange-400 font-bold"; status.innerText = "LEVEL 2";
+                display.className = "text-2xl font-bold tracking-widest font-mono text-orange-500"; display.innerText = "DEFCON 2";
+                label.className = "text-[10px] font-bold text-orange-400 uppercase tracking-wider mt-0.5 font-mono"; label.innerText = "HIGH HOSTILITY // SORTIE CALLED";
+                document.getElementById('bar-5').className = "h-1.5 bg-orange-500";
+                document.getElementById('bar-4').className = "h-1.5 bg-orange-500";
+                document.getElementById('bar-3').className = "h-1.5 bg-orange-500";
+                document.getElementById('bar-2').className = "h-1.5 bg-orange-500 shadow-[0_0_8px_#f97316]";
+            }
+            else if(level === 1) {
+                box.className = "p-3 bg-red-950/40 border border-red-500 rounded-lg text-center space-y-2 transition-all duration-300 threat-alert-flash";
+                status.className = "text-red-500 font-bold animate-ping"; status.innerText = "CRITICAL ALERT";
+                display.className = "text-2xl font-bold tracking-widest font-mono text-red-500"; display.innerText = "DEFCON 1";
+                label.className = "text-[10px] font-bold text-red-400 uppercase tracking-wider mt-0.5 font-mono animate-bounce"; label.innerText = "CRITICAL BREACH // KINETIC RESP";
+                document.getElementById('bar-5').className = "h-1.5 bg-red-500";
+                document.getElementById('bar-4').className = "h-1.5 bg-red-500";
+                document.getElementById('bar-3').className = "h-1.5 bg-red-500";
+                document.getElementById('bar-2').className = "h-1.5 bg-red-500";
+                document.getElementById('bar-1').className = "h-1.5 bg-red-500 shadow-[0_0_10px_#ef4444]";
+            }
+
+            clearTimeout(defconResetTimeout);
+            defconResetTimeout = setTimeout(() => {
+                if(currentDefconLevel > 5) setDefconLevel(currentDefconLevel + 1);
+                else setDefconLevel(5);
+            }, 6000);
+        }
+
+        // UNIFIED INPUT SYSTEM FOR SCENIC TOUCHES ON BOTH PHONE AND LAPTOP
+        let isDragging = false, lastMouseX, lastMouseY;
+        
+        canvas.addEventListener('mousedown', (e) => { isDragging = true; lastMouseX = e.clientX; lastMouseY = e.clientY; });
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            let dX = e.clientX - lastMouseX; let dY = e.clientY - lastMouseY;
+            globalLngRotation += dX * 0.005; globalLatRotation += dY * 0.005;
+            globalLatRotation = Math.max(-Math.PI/2.3, Math.min(Math.PI/2.3, globalLatRotation));
+            lastMouseX = e.clientX; lastMouseY = e.clientY;
+        });
+        window.addEventListener('mouseup', () => isDragging = false);
+
+        canvas.addEventListener('touchstart', (e) => { 
+            isDragging = true; 
+            lastMouseX = e.touches[0].clientX; 
+            lastMouseY = e.touches[0].clientY; 
+        }, {passive: true});
+        canvas.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            let dX = e.touches[0].clientX - lastMouseX; 
+            let dY = e.touches[0].clientY - lastMouseY;
+            globalLngRotation += dX * 0.006; globalLatRotation += dY * 0.006;
+            globalLatRotation = Math.max(-Math.PI/2.3, Math.min(Math.PI/2.3, globalLatRotation));
+            lastMouseX = e.touches[0].clientX; lastMouseY = e.touches[0].clientY;
+        }, {passive: true});
+        window.addEventListener('touchend', () => isDragging = false);
+
+        canvas.addEventListener('wheel', (e) => { e.preventDefault(); currentScale += e.deltaY * -0.0012; currentScale = Math.max(0.5, Math.min(2.5, currentScale)); }, { passive: false });
+
+        function toggleAudio() {
+            if (!audioEnabled) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)(); audioEnabled = true;
+                document.getElementById('audioBtn').className = "border border-purple-500 bg-purple-950/40 text-xs font-bold px-2.5 py-1 rounded uppercase text-purple-400 font-bold";
+            } else {
+                audioEnabled = false;
+                document.getElementById('audioBtn').className = "border border-purple-500/30 text-xs font-bold px-2.5 py-1 rounded uppercase text-purple-400";
+            }
+        }
+
+        function playSynthSound(freq, type, duration, vol) {
+            if (!audioEnabled || !audioCtx || isSystemFrozen) return;
+            try {
+                let osc = audioCtx.createOscillator(); let gain = audioCtx.createGain();
+                osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                if(type === 'sawtooth') osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + duration);
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+                osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        function setTheme(themeName) {
+            currentTheme = themeName;
+            ['satellite', 'neon', 'heatmap'].forEach(t => {
+                let btn = document.getElementById(`btn-${t}`);
+                if(btn) {
+                    if(t === themeName) btn.className = "text-left text-xs bg-purple-950/60 border border-purple-500/50 text-purple-300 px-2 py-1.5 rounded font-bold transition";
+                    else btn.className = "text-left text-xs bg-slate-900/40 border border-slate-800 text-slate-400 px-2 py-1.5 rounded font-bold transition hover:border-purple-900/50";
+                }
+            });
+        }
+
+        function projectTo3D(lat, lng, radius) {
+            let radLat = (lat * Math.PI) / 180; let radLng = (lng * Math.PI) / 180 + globalLngRotation;
+            let x = radius * Math.cos(radLat) * Math.sin(radLng); let y = -radius * Math.sin(radLat); let z = radius * Math.cos(radLat) * Math.cos(radLng);
+            let rotY = y * Math.cos(globalLatRotation) - z * Math.sin(globalLatRotation); let rotZ = y * Math.sin(globalLatRotation) + z * Math.cos(globalLatRotation);
+            return { x: canvas.width / 2 + x, y: canvas.height / 2 + rotY, isFront: rotZ > -10, depth: rotZ };
+        }
+
+        function triggerSystemGlitchState() {
+            isGlitchingActive = true;
+            glitchTimerCounter = 12; 
+            setDefconLevel(1);
+            playSynthSound(90, 'sawtooth', 0.25, 0.4);
+
+            document.getElementById('mainCanvasContainer').classList.add('threat-alert-flash');
+            document.getElementById('sidebarPanel').classList.add('threat-alert-flash');
+            document.getElementById('mainHeader').className = document.getElementById('mainHeader').className.replace('border-violet-500/30', 'border-red-500');
+            document.getElementById('emergencyBadge').classList.remove('hidden');
+            document.getElementById('statusDot').className = document.getElementById('statusDot').className.replace('bg-purple-500', 'bg-red-500');
+            document.getElementById('terminalStatus').className = "text-red-500 animate-ping";
+            document.getElementById('terminalStatus').innerHTML = "● CRITICAL ALERT VERIFIED";
+        }
+
+        function clearSystemGlitchState() {
+            isGlitchingActive = false;
+            setDefconLevel(3);
+
+            document.getElementById('mainCanvasContainer').classList.remove('threat-alert-flash');
+            document.getElementById('sidebarPanel').classList.remove('threat-alert-flash');
+            document.getElementById('mainHeader').className = document.getElementById('mainHeader').className.replace('border-red-500', 'border-violet-500/30');
+            document.getElementById('emergencyBadge').classList.add('hidden');
+            document.getElementById('statusDot').className = document.getElementById('statusDot').className.replace('bg-red-500', 'bg-purple-500');
+            document.getElementById('terminalStatus').className = "text-emerald-400 animate-pulse";
+            document.getElementById('terminalStatus').innerHTML = "● FEED SECURE";
+        }
+
+        function addTerminalLog(src, dest, type, isCritical) {
+            if(isSystemFrozen) return;
+            let srcIp = `${Math.floor(Math.random()*140)+40}.${Math.floor(Math.random()*230)}.${Math.floor(Math.random()*190)}.${Math.floor(Math.random()*250)}`;
+            let destIp = `172.16.${Math.floor(Math.random()*254)}.${Math.floor(Math.random()*254)}`;
+            let ports = [443, 80, 22, 8443][Math.floor(Math.random()*4)];
+            let logNode = document.createElement('div');
+            
+            if(isCritical) {
+                logNode.innerHTML = `<span class="text-red-500 font-bold">[${new Date().toLocaleTimeString()}] !!! CRITICAL INFRASTRUCTURE HIT !!!</span> -> Target: <span class="text-white bg-red-950 px-1 font-bold">${dest}</span> breached by <span class="text-yellow-400 font-bold">${type}</span>`;
+            } else {
+                logNode.innerHTML = `<span class="text-purple-400">[${new Date().toLocaleTimeString()}]</span> <span class="text-pink-400 font-bold">🛡️ NEXUS-BLOCK:</span> ${type} | Src: <span class="text-white">${src}</span> -> Dest: <span class="text-violet-400">${dest}</span>`;
+            }
+            term.appendChild(logNode); term.scrollTop = term.scrollHeight;
+            if(term.childNodes.length > 25) term.removeChild(term.firstChild);
+        }
+
+        function fireAttackEvent() {
+            if (isSystemFrozen) return;
+
+            const src = nodes[Math.floor(Math.random() * nodes.length)];
+            let dest = nodes[Math.floor(Math.random() * nodes.length)];
+            while(dest.name === src.name) dest = nodes[Math.floor(Math.random() * nodes.length)];
+
+            const choice = Math.floor(Math.random() * 3);
+            let chosenColor, labels, speed, typeStyle;
+
+            if (choice === 0) { chosenColor = '#ec4899'; labels = "DDoS Volumetric Traffic Spike"; speed = 0.011 * timeWarpMultiplier; typeStyle = "ddos"; if(currentDefconLevel > 4) setDefconLevel(4); }
+            else if (choice === 1) { chosenColor = '#ef4444'; labels = "Zero-Day Ransomware Injection Core"; speed = 0.026 * timeWarpMultiplier; typeStyle = "malware"; if(currentDefconLevel > 2) setDefconLevel(2); }
+            else { chosenColor = '#a855f7'; labels = "Cross-Site Scripting Injection Attack"; speed = 0.015 * timeWarpMultiplier; typeStyle = "standard"; if(currentDefconLevel > 3) setDefconLevel(3); }
+
+            activeLasers.push({ src: src, dest: dest, progress: 0, speed: speed, color: chosenColor, labelType: labels, style: typeStyle });
+            let pitch = typeStyle === 'malware' ? 750 : (typeStyle === 'ddos' ? 380 : 580);
+            playSynthSound(pitch, 'sine', 0.1, 0.07);
+        }
+
+        let attackIntervalTime = 750;
+        function coreAutomationTriggerLoop() {
+            setTimeout(() => {
+                fireAttackEvent();
+                coreAutomationTriggerLoop();
+            }, attackIntervalTime / (isSystemFrozen ? 0.0001 : timeWarpMultiplier));
+        }
+        coreAutomationTriggerLoop();
+
+        function drawEngine() {
+            let shakeX = 0; let shakeY = 0;
+            if (isGlitchingActive && glitchTimerCounter > 0) {
+                shakeX = (Math.random() - 0.5) * 14;
+                shakeY = (Math.random() - 0.5) * 14;
+                glitchTimerCounter--;
+                if(glitchTimerCounter <= 0) clearSystemGlitchState();
+            }
+
+            ctx.fillStyle = '#05050d';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.translate(shakeX, shakeY);
+
+            // MATRIX BACKDROP
+            ctx.fillStyle = isGlitchingActive ? 'rgba(239, 68, 68, 0.12)' : 'rgba(139, 92, 246, 0.06)';
+            ctx.font = '10px Share Tech Mono';
+            for (let i = 0; i < matrixDrops.length; i++) {
+                const textChar = isGlitchingActive ? (Math.random() > 0.5 ? "X" : "!") : (Math.random() > 0.5 ? "1" : "0");
+                const xPos = i * 14; const yPos = matrixDrops[i] * 14;
+                ctx.fillText(textChar, xPos, yPos);
+                if (!isSystemFrozen) {
+                    matrixDrops[i] += 0.05 * timeWarpMultiplier;
+                    if (yPos > canvas.height && Math.random() > 0.975) matrixDrops[i] = 0;
+                }
+            }
+
+            if (!isDragging && !isSystemFrozen) {
+                globalLngRotation += 0.0025 * timeWarpMultiplier;
+            }
+
+            // SMART DYNAMIC RADIAL CALCULATIONS (MAINTAINS VISUAL BOUNDS ACCURATELY ON DESKTOP & MOBILE PHONES)
+            const radius = Math.min(canvas.width, canvas.height) * (window.innerWidth < 768 ? 0.38 : 0.34) * currentScale;
+
+            if (radius > 5) {
+                if (currentTheme === 'satellite') {
+                    let grad = ctx.createRadialGradient(canvas.width/2 - radius*0.2, canvas.height/2 - radius*0.3, radius*0.1, canvas.width/2, canvas.height/2, radius);
+                    grad.addColorStop(0, '#2e1065'); grad.addColorStop(0.75, '#0f051d'); grad.addColorStop(1, '#020005');
+                    ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height/2, radius, 0, Math.PI*2); ctx.fill();
+                } else {
+                    ctx.fillStyle = '#020207'; ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height/2, radius, 0, Math.PI*2); ctx.fill();
+                }
+
+                // EARTH MAP SHADERS
+                earthPoints.forEach(pt => {
+                    let screen = projectTo3D(pt.lat, pt.lng, radius);
+                    if (screen.isFront) {
+                        let alpha = (screen.depth + radius) / (radius * 2);
+                        if (currentTheme === 'satellite') {
+                            ctx.fillStyle = `rgba(139, 92, 246, ${alpha * 0.28})`; ctx.fillRect(screen.x, screen.y, window.innerWidth < 768 ? 2 : 3, window.innerWidth < 768 ? 2 : 3);
+                        } else if (currentTheme === 'neon') {
+                            ctx.fillStyle = `rgba(236, 72, 153, ${alpha * 0.18})`; ctx.fillRect(screen.x, screen.y, 2, 2);
+                        } else if (currentTheme === 'heatmap') {
+                            ctx.fillStyle = `rgba(30, 27, 75, 0.35)`; ctx.fillRect(screen.x, screen.y, 2.5, 2.5);
+                        }
+                    }
+                });
+
+                // GLOBAL BORDER LINES
+                nodes.forEach(node => {
+                    const borderPoints = countryBorders[node.id];
+                    if (borderPoints) {
+                        ctx.beginPath();
+                        let activeStrike = node.borderTimer > 0;
+                        if(!isSystemFrozen && activeStrike) node.borderTimer--;
+
+                        ctx.strokeStyle = activeStrike ? `rgba(239, 68, 68, ${0.4 + Math.sin(Date.now()/30)*0.4})` : 'rgba(168, 85, 247, 0.35)';
+                        ctx.lineWidth = activeStrike ? 2.5 : 1.2;
+
+                        let isDrawingPath = false;
+                        for (let i = 0; i < borderPoints.length; i++) {
+                            let coord = projectTo3D(borderPoints[i].lat, borderPoints[i].lng, radius);
+                            if (coord.isFront) {
+                                if (!isDrawingPath) { ctx.moveTo(coord.x, coord.y); isDrawingPath = true; }
+                                else ctx.lineTo(coord.x, coord.y);
+                            } else {
+                                isDrawingPath = false;
+                            }
+                        }
+                        ctx.stroke();
+                    }
+                });
+
+                // FIXED BASE TARGET ANCHORS STATIONS
+                nodes.forEach(node => {
+                    let pt = projectTo3D(node.lat, node.lng, radius);
+                    if (pt.isFront) {
+                        ctx.fillStyle = node.borderTimer > 0 ? '#ef4444' : '#a855f7'; 
+                        ctx.beginPath(); ctx.arc(pt.x, pt.y, window.innerWidth < 768 ? 3 : 4, 0, Math.PI*2); ctx.fill();
+                        ctx.fillStyle = '#10b981'; ctx.font = 'bold 11px Share Tech Mono';
+                        if (window.innerWidth >= 640) {
+                            ctx.fillText(node.name, pt.x + 8, pt.y + 3);
+                        }
+                    }
+                });
+
+                // HEATMAP METRICS RENDERING
+                if (currentTheme === 'heatmap') {
+                    nodes.forEach(node => {
+                        if (node.attacksReceived > 0) {
+                            let pt = projectTo3D(node.lat, node.lng, radius);
+                            if (pt.isFront) {
+                                let glowRadius = Math.min(50, node.attacksReceived * 2.8);
+                                let grad = ctx.createRadialGradient(pt.x, pt.y, 1, pt.x, pt.y, glowRadius);
+                                grad.addColorStop(0, 'rgba(236, 72, 153, 0.55)'); grad.addColorStop(1, 'rgba(236, 72, 153, 0.0)');
+                                ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(pt.x, pt.y, glowRadius, 0, Math.PI*2); ctx.fill();
+                            }
+                        }
+                    });
+                }
+
+                // PROCESSING ACTIVE INTER-CONTINENTAL LASERS
+                for (let i = activeLasers.length - 1; i >= 0; i--) {
+                    let arc = activeLasers[i];
+                    if (!isSystemFrozen) arc.progress += arc.speed;
+
+                    let p1 = projectTo3D(arc.src.lat, arc.src.lng, radius);
+                    let p2 = projectTo3D(arc.dest.lat, arc.dest.lng, radius);
+
+                    if (arc.progress >= 1) {
+                        arc.dest.attacksReceived += 1;
+                        arc.dest.borderTimer = 35;
+
+                        let isCriticalHit = arc.style === 'malware' && Math.random() > 0.45;
+                        if (isCriticalHit) triggerSystemGlitchState();
+
+                        addTerminalLog(arc.src.name, arc.dest.name, arc.labelType, isCriticalHit);
+
+                        if (p2.isFront) {
+                            let impactPitch = arc.style === 'ddos' ? 85 : 120;
+                            playSynthSound(impactPitch, 'sawtooth', 0.4, 0.2);
+
+                            activeExplosions.push({
+                                x: p2.x, y: p2.y, color: arc.color, ripple1: 1, ripple2: -8, ripple3: -18, maxLimit: 45, particles: Array.from({length: 12}, () => ({
+                                    px: p2.x, py: p2.y, vx: (Math.random() - 0.5) * 5, vy: (Math.random() - 0.5) * 5, alpha: 1
+                                }))
+                            });
+                        }
+                        activeLasers.splice(i, 1); continue;
+                    }
+
+                    if (p1.isFront && p2.isFront) {
+                        let midX = (p1.x + p2.x) / 2; let midY = (p1.y + p2.y) / 2 - radius * 0.45;
+                        let t = arc.progress;
+                        let lx = (1 - t) * (1 - t) * p1.x + 2 * (1 - t) * t * midX + t * t * p2.x;
+                        let ly = (1 - t) * (1 - t) * p1.y + 2 * (1 - t) * t * midY + t * t * p2.y;
+
+                        ctx.save();
+                        if (arc.style === 'ddos') {
+                            let waveOffset = Math.sin(t * Math.PI * 8 + Date.now() / 45) * 6;
+                            ctx.strokeStyle = arc.color; ctx.lineWidth = 2.5;
+                            ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.quadraticCurveTo(midX + waveOffset, midY + waveOffset, p2.x, p2.y); ctx.stroke();
+                            ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(lx + waveOffset/2, ly + waveOffset/2, 4, 0, Math.PI * 2); ctx.fill();
+                        } else {
+                            ctx.strokeStyle = arc.color; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.quadraticCurveTo(midX, midY, p2.x, p2.y); ctx.stroke();
+                            ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(lx, ly, 3, 0, Math.PI * 2); ctx.fill();
+                        }
+                        ctx.restore();
+                    }
+                }
+
+                // PROCESSING THREE-STAGE IMPACT SHOCKWAVES
+                for (let i = activeExplosions.length - 1; i >= 0; i--) {
+                    let exp = activeExplosions[i]; let isAlive = false;
+                    let step = 1.8 * (isSystemFrozen ? 0 : timeWarpMultiplier);
+
+                    if(exp.ripple1 >= 0 && exp.ripple1 < exp.maxLimit) {
+                        exp.ripple1 += step; isAlive = true;
+                        ctx.strokeStyle = exp.color; ctx.lineWidth = 2.2; ctx.globalAlpha = 1 - (exp.ripple1 / exp.maxLimit);
+                        ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.ripple1, 0, Math.PI*2); ctx.stroke();
+                    }
+                    exp.ripple2 += step;
+                    if(exp.ripple2 >= 1 && exp.ripple2 < exp.maxLimit) {
+                        isAlive = true; ctx.strokeStyle = exp.color; ctx.lineWidth = 1.5; ctx.globalAlpha = 1 - (exp.ripple2 / exp.maxLimit);
+                        ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.ripple2, 0, Math.PI*2); ctx.stroke();
+                    }
+
+                    exp.particles.forEach(p => {
+                        if (!isSystemFrozen) { p.px += p.vx * timeWarpMultiplier; p.py += p.vy * timeWarpMultiplier; p.alpha -= 0.022 * timeWarpMultiplier; }
+                        if(p.alpha > 0) {
+                            isAlive = true; ctx.fillStyle = exp.color; ctx.globalAlpha = p.alpha; ctx.fillRect(p.px, p.py, 2, 2);
+                        }
+                    });
+                    ctx.globalAlpha = 1.0;
+                    if (!isAlive) activeExplosions.splice(i, 1);
+                }
+            }
+
+            if (isGlitchingActive) {
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.35)'; ctx.lineWidth = 1.5;
+                for(let j=0; j<canvas.height; j+=40) {
+                    ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(canvas.width, j); ctx.stroke();
+                }
+            }
+
+            ctx.restore();
+            requestAnimationFrame(drawEngine);
+        }
+
+        // Delay loop start to guarantee layout bounding calculation handles safely
+        setTimeout(drawEngine, 250);
+    </script>
+</body>
+</html>
